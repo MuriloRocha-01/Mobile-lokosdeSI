@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Lokos de S.I — app de celular (Expo / React Native)
 
 Companion do Lokos de S.I que roda no PC. Tem as abas **Finanças** (lançar um gasto na rua em poucos toques e ver o
@@ -59,3 +60,6 @@ src/components/Numpad        teclado numérico grande (o valor entra em centavos
 
 As categorias (Salário, Freelance, Alimentação...) vêm do servidor (`GET /finance/categories`). A última categoria usada
 de cada tipo já vem marcada na próxima vez, para lançar com o mínimo de toques.
+=======
+# Mobile-lokosdeSI
+>>>>>>> 42211827eaf8f6a5f65e6c85cb25fb91d1798c03
