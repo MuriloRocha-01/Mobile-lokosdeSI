@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Lokos de S.I",
+    "slug": "ecossitema-murilo-mobile",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.murilo.ecossistema"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./src/assets/icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "br.com.murilo.ecossistema",
+      "versionCode": 3
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "backgroundColor": "#F6F5FA",
+    "scheme": "ecossistema",
+    "extra": {
+      "eas": {
+        "projectId": "76a10a7c-19f8-4378-a424-be01e36a06a6"
+      }
+    },
+    "owner": "dreitspok"
+  }
+}
