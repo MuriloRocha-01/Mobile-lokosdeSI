@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
 from ..config import DATABASE_FILE, MIGRATION_TOKEN, NOTES_ROOT, PROJECTS_ROOT
-from ..database import engine
+from ..database import IS_SQLITE, engine
 
 router = APIRouter(prefix="/migrate", tags=["migração"])
 
@@ -39,6 +39,8 @@ async def restore(file: UploadFile = File(...), x_migration_token: str = Header(
     """Recebe um .zip (ver scripts/pack_migration.py) com database.db, Notas/ e Projetos/, e troca
     o que este servidor tem por isso. Sobrescreve de vez: pensado para rodar uma única vez, em um
     servidor recém-criado (sem dado nenhum de valor ainda)."""
+    if not IS_SQLITE:
+        raise HTTPException(501, "Migração por arquivo só existe no modo SQLite.")
     if not MIGRATION_TOKEN:
         raise HTTPException(503, "MIGRATION_TOKEN não configurado neste servidor.")
     if x_migration_token != MIGRATION_TOKEN:

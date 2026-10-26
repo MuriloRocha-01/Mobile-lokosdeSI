@@ -12,13 +12,10 @@ services:
         value: 3.11.9
       - key: JWT_SECRET
         generateValue: true
+      # Banco Postgres gratuito (Supabase): cole a "Session pooler connection string" no painel do Render.
+      # Sem DATABASE_URL o back-end cai no SQLite, que e apagado a cada reinicio no plano free.
+      - key: DATABASE_URL
+        sync: false
+      # Arquivos (anexos de notas, imagens de projetos) ficam em /tmp e nao sobrevivem a reinicios no plano free.
       - key: DATA_ROOT
         value: /tmp/data
-      - key: DATABASE_FILE
-        value: /tmp/data/Dados/database.db
-    # No plano free so /tmp e gravavel e ele e apagado a cada deploy/reinicio.
-    # Para persistir: plano pago, descomente o disk e mude DATA_ROOT/DATABASE_FILE para /var/data.
-    # disk:
-    #   name: dados
-    #   mountPath: /var/data
-    #   sizeGB: 1

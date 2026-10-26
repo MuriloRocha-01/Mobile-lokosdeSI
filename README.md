@@ -45,11 +45,15 @@ python run.py                 # http://127.0.0.1:8000, rota de saúde em /health
 
 Detalhes e variáveis de ambiente no [README do backend](backend/README.md).
 
-## Deploy no Render
+## Deploy gratuito (Render + Supabase)
 
-O arquivo `render.yaml` define um serviço web Python com `rootDir: backend`. No Render, crie um **Blueprint** apontando para este repositório (ou um Web Service com Root Directory `backend`, build `pip install -r requirements.txt` e start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). O plano gratuito não tem disco persistente: o SQLite é apagado a cada deploy. Para manter os dados, use um disco (plano pago) ou um banco externo.
+O `render.yaml` define um serviço web Python com `rootDir: backend`; os dados ficam num Postgres gratuito do Supabase.
 
-O app aponta para `https://mobile-lokosdesi-backend.onrender.com` (`DEFAULT_SERVER_URL` em `mobile/src/config/server.ts`). Ao trocar de host, altere essa constante e gere um novo build.
+1. No Supabase, crie um projeto e copie a **Session pooler connection string** (Connect → Session pooler).
+2. No Render, crie um **Blueprint** apontando para este repositório e cole a string em `DATABASE_URL` quando pedir.
+3. O app aponta para `https://mobile-lokosdesi-backend.onrender.com` (`DEFAULT_SERVER_URL` em `mobile/src/config/server.ts`). Ao trocar de host, altere essa constante e gere um novo build.
+
+Limites do plano gratuito: o serviço do Render dorme após inatividade (a primeira chamada leva cerca de 50 s) e o projeto do Supabase é pausado após 7 dias sem uso (dá para reativar no painel, sem perder dados). Anexos de notas e imagens de projetos ficam em disco temporário e somem a cada reinício.
 
 ## Organização
 

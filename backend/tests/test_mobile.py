@@ -25,6 +25,7 @@ init_db()
 client = TestClient(app)
 
 class MobileTests(unittest.TestCase):
+    @unittest.skipUnless(engine.dialect.name == 'sqlite', 'backup em arquivo só existe no SQLite')
     def test_backup_before_migration(self):
         import sqlite3
         from unittest.mock import patch

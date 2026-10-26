@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import func, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, text
+from sqlalchemy import false, func, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -44,7 +44,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     # O dono do servidor (a primeira conta criada): gerencia os convidados e não tem limite de
     # espaço. As demais contas (convidados) têm todas as funções, cada uma no seu espaço.
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 # Vínculo MUITOS-PARA-MUITOS entre notas e itens da agenda: uma nota pode falar de vários itens (o resumo

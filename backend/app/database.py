@@ -1,39 +1,56 @@
-"""Banco de dados SQLite (um único arquivo, database.db, no HD) com SQLAlchemy."""
+"""Banco de dados com SQLAlchemy: SQLite (um arquivo, database.db) ou Postgres (DATABASE_URL)."""
 
 from collections.abc import Iterator
 from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .config import DATABASE_FILE
+from .config import DATABASE_FILE, DATABASE_URL
 
 
 class Base(DeclarativeBase):
     pass
 
 
-# check_same_thread=False: o FastAPI atende cada requisição em uma thread diferente.
-engine = create_engine(
-    URL.create("sqlite", database=str(DATABASE_FILE)),
-    connect_args={"check_same_thread": False},
-)
+IS_SQLITE = not DATABASE_URL
+
+if IS_SQLITE:
+    # check_same_thread=False: o FastAPI atende cada requisição em uma thread diferente.
+    engine = create_engine(
+        URL.create("sqlite", database=str(DATABASE_FILE)),
+        connect_args={"check_same_thread": False},
+    )
+
+    @event.listens_for(engine, "connect")
+    def _configure_sqlite(dbapi_connection, _record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=5000")  # espera até 5 s em vez de falhar se o arquivo estiver ocupado
+        # O modo do diário fica no padrão (DELETE) de propósito: no WAL o banco viraria três arquivos
+        # (.db, -wal e -shm) e dados recentes ficariam fora do .db, o que é ruim para um HD que se
+        # leva de um PC a outro e pode ser desconectado a qualquer momento.
+        cursor.close()
+else:
+    # Postgres hospedado (Supabase etc.): pool pequeno e reconexão automática, pois o plano gratuito
+    # derruba conexões ociosas.
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=5, pool_recycle=240)
 
 
-@event.listens_for(engine, "connect")
-def _configure_sqlite(dbapi_connection, _record) -> None:
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA busy_timeout=5000")  # espera até 5 s em vez de falhar se o arquivo estiver ocupado
-    # O modo do diário fica no padrão (DELETE) de propósito: no WAL o banco viraria três arquivos
-    # (.db, -wal e -shm) e dados recentes ficariam fora do .db, o que é ruim para um HD que se
-    # leva de um PC a outro e pode ser desconectado a qualquer momento.
-    cursor.close()
+def begin_write(db: Session) -> None:
+    """Abre uma seção crítica de escrita: duas requisições simultâneas não passam juntas por aqui.
 
+    SQLite: BEGIN IMMEDIATE (trava de escrita do arquivo). Postgres: trava consultiva da transação,
+    liberada no commit/rollback.
+    """
+    if IS_SQLITE:
+        db.execute(text("BEGIN IMMEDIATE"))
+    else:
+        db.execute(text("SELECT pg_advisory_xact_lock(7340211)"))
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
@@ -48,18 +65,19 @@ def init_db() -> None:
     """Cria o database.db e as tabelas se ainda não existirem."""
     from . import models  # noqa: F401  (importar registra as tabelas em Base.metadata)
 
-    if not Path(DATABASE_FILE.anchor).exists():
+    if IS_SQLITE and not Path(DATABASE_FILE.anchor).exists():
         raise RuntimeError(
             f"A unidade {DATABASE_FILE.anchor} não foi encontrada. "
             "Conecte o HD ou ajuste a variável DATA_ROOT (ou DATABASE_FILE)."
         )
-    DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if IS_SQLITE:
+        DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
     backup_before_mobile_migration()
     try:
         Base.metadata.create_all(engine)
     except OperationalError as exc:
         raise RuntimeError(
-            f"Não foi possível criar/abrir o banco de dados em {DATABASE_FILE}. "
+            f"Não foi possível criar/abrir o banco de dados ({DATABASE_FILE if IS_SQLITE else 'Postgres'}). "
             "Confira se há permissão para criar arquivos nessa pasta (na raiz de um disco o Windows "
             f"costuma permitir só pastas). Detalhe: {exc.orig}"
         ) from exc
@@ -112,6 +130,8 @@ def seed_voice_groups() -> None:
 
 def _migrate() -> None:
     """Ajusta um banco criado por uma versão antiga (o create_all só cria tabelas, não altera as existentes)."""
+    if engine.dialect.name != "sqlite":  # Postgres começa já no esquema atual, criado pelo create_all
+        return
     with engine.begin() as conn:
         columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)")}
         if "is_admin" not in columns:
@@ -169,7 +189,7 @@ def _migrate() -> None:
 
 def backup_before_mobile_migration() -> None:
     """Guarda o banco antigo antes das migrações de cartões e horário."""
-    if not DATABASE_FILE.is_file():
+    if not IS_SQLITE or not DATABASE_FILE.is_file():
         return
     with sqlite3.connect(str(DATABASE_FILE)) as source:
         columns = {row[1] for row in source.execute('PRAGMA table_info(transactions)')}

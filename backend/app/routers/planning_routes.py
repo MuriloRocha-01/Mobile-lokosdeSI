@@ -9,7 +9,7 @@ from sqlalchemy import select, func, text
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
-from ..database import get_db
+from ..database import begin_write, get_db
 from ..models import SavingsGoal, SkippedFinanceOccurrence, CardCycle, CategoryBudget, FinanceCard, InstallmentEntry, Transaction, TransactionCategory, User
 from ..recurrence import occurrences
 from ..schemas import TransactionCreate
@@ -225,7 +225,7 @@ def write_goal(payload: GoalInput, user: User, db: Session, goal_id: int | None 
     if payload.reserved > payload.target:
         raise HTTPException(400, "A reserva não pode ultrapassar o valor da meta.")
     # Serializa saldo + reserva: duas requisições não separam o mesmo dinheiro.
-    db.execute(text("BEGIN IMMEDIATE"))
+    begin_write(db)
     row = db.scalar(select(SavingsGoal).where(SavingsGoal.id == goal_id, SavingsGoal.user_id == user.id)) if goal_id else None
     if goal_id and row is None:
         raise HTTPException(404, "Meta não encontrada.")

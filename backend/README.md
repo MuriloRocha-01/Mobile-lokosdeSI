@@ -1,6 +1,6 @@
 # Backend
 
-API FastAPI com SQLite, usada pelo aplicativo mobile e pelo desktop.
+API FastAPI com SQLite (local) ou Postgres (hospedado), usada pelo aplicativo mobile e pelo desktop.
 
 ```text
 app/
@@ -32,6 +32,7 @@ python run.py
 
 | Variável | Uso |
 | --- | --- |
+| `DATABASE_URL` | Postgres (ex.: Supabase). Se definida, substitui o SQLite. Aceita `postgres://`, `postgresql://` ou `postgresql+psycopg://` |
 | `JWT_SECRET` | Segredo dos tokens (mínimo 32 caracteres). Sem ela, é gerado e salvo em arquivo local |
 | `DATA_ROOT` | Pasta base dos dados (padrão `F:\`, ajuste em servidores Linux, ex.: `/var/data`) |
 | `DATABASE_FILE` | Caminho do SQLite (padrão `DATA_ROOT/Dados/database.db`) |
@@ -50,5 +51,5 @@ Os testes usam apenas banco temporário.
 
 ## Deploy
 
-- **Render:** use o `render.yaml` da raiz do repositório (`rootDir: backend`). Defina `JWT_SECRET`, `DATA_ROOT` e `DATABASE_FILE`. Sem disco persistente os dados somem a cada deploy.
+- **Render + Supabase (gratuito):** use o `render.yaml` da raiz (`rootDir: backend`) e defina `DATABASE_URL` com a connection string do Supabase (use o *Session pooler*). Os dados ficam no Postgres e sobrevivem a reinícios; anexos de notas e imagens de projetos continuam em disco temporário.
 - **Railway:** `Procfile` e `railway.json` continuam válidos.

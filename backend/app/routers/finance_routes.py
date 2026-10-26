@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
-from ..database import get_db
+from ..database import begin_write, get_db
 from ..models import CATEGORY_ICONS, SkippedFinanceOccurrence, InstallmentEntry, FinanceCard, FinancialProfile, Transaction, TransactionCategory, User
 from ..recurrence import occurrences
 from ..schemas import (
@@ -149,7 +149,7 @@ def _materialize_due(db: Session, user: User) -> None:
     app ficou fechado — todas as que faltarem são criadas de uma vez).
     """
     # Leituras paralelas do painel não podem criar duas ocorrências do mesmo mês.
-    db.execute(text("BEGIN IMMEDIATE"))
+    begin_write(db)
     anchors = db.scalars(
         select(Transaction).where(Transaction.user_id == user.id, Transaction.recurrence != "none", Transaction.recurrence_parent_id.is_(None))
     ).all()

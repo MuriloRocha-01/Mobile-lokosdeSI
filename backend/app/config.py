@@ -19,6 +19,14 @@ NOTES_ROOT = Path(os.environ.get("NOTES_ROOT", DATA_ROOT / "Notas")).resolve()
 # criar pastas na raiz de um HD secundário, mas não arquivos.
 DATABASE_FILE = Path(os.environ.get("DATABASE_FILE", DATA_ROOT / "Dados" / "database.db")).resolve()
 
+# Banco externo (Postgres, ex.: Supabase). Se DATABASE_URL existir, ele é usado no lugar do SQLite acima.
+# Aceita postgres://, postgresql:// ou postgresql+psycopg://.
+_raw_url = os.environ.get("DATABASE_URL", "").strip()
+for _prefix in ("postgres://", "postgresql://"):
+    if _raw_url.startswith(_prefix):
+        _raw_url = "postgresql+psycopg://" + _raw_url[len(_prefix):]
+DATABASE_URL = _raw_url
+
 # Pasta do app no SSD do usuário: grava mesmo com o HD de dados desconectado, e é gravável mesmo
 # com o app instalado em "Arquivos de Programas".
 _LOCAL_APPDATA = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
