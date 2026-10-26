@@ -1,0 +1,9 @@
+.venv/
+.test-venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.db
+*.log
