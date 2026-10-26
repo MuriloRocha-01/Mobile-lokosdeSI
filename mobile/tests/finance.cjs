@@ -1,0 +1,97 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const ts = require('typescript')
+require.extensions['.ts'] = (module, path) => module._compile(ts.transpileModule(fs.readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, path)
+const { resolvePeriod, nextRange } = require('../src/utils/calendarUtils.ts')
+const { configureApi, listTransactions, getCashflow } = require('../src/services/api.ts')
+
+async function main() {
+  const { transactionIcon } = require('../src/utils/categoryIcons.ts')
+  assert.equal(transactionIcon('Academia mensal', 'health'), 'gym')
+  assert.equal(transactionIcon('Netflix', 'subscriptions'), 'netflix')
+  assert.equal(transactionIcon('Spotify Premium', 'subscriptions'), 'spotify')
+  assert.equal(transactionIcon('Ônibus', 'transport'), 'transport')
+
+  const { spendingPoints, spendingPath } = require('../src/utils/spendingChart.ts')
+  assert.deepEqual(spendingPoints([{date:'2026-01-01',expense:0.1},{date:'2026-01-02',expense:0.2},{date:'2026-02-01',expense:10}],true),[{date:'2026-01',value:0.3},{date:'2026-02',value:10}])
+  assert.equal(spendingPath([]),'')
+  assert.ok(!/NaN|Infinity/.test(spendingPath([{value:0}])))
+  assert.ok(spendingPath([{value:10},{value:20}]).startsWith('M8,'))
+
+  const { transactionSections } = require('../src/utils/transactionSections.ts')
+  const transactions = [{id:1,date:'2026-10-16',time:null},{id:2,date:'2026-10-17',time:'08:00'},{id:3,date:'2026-10-16',time:'19:30'},{id:4,date:'2025-10-17',time:null}]
+  const grouped = transactionSections(transactions)
+  assert.deepEqual(grouped.map(g=>g.date), ['2026-10-17','2026-10-16','2025-10-17'])
+  assert.deepEqual(grouped[1].data.map(t=>t.id), [3,1])
+  assert.deepEqual(transactions.map(t=>t.id), [1,2,3,4])
+  assert.deepEqual(transactionSections([]), [])
+
+  const { parseWidgetLink, validSnapshot } = require('../src/services/widgets/model.ts')
+  assert.deepEqual(parseWidgetLink('ecossistema://widget/income'), {type:'income'})
+  assert.deepEqual(parseWidgetLink('ecossistema://widget/expense'), {type:'expense'})
+  assert.deepEqual(parseWidgetLink('ecossistema://widget/day/2024-02-29'), {date:'2024-02-29'})
+  for (const url of ['https://widget/income','ecossistema://widget/day/2025-02-29','ecossistema://widget/day/2026-13-01','ecossistema://widget/other']) assert.equal(parseWidgetLink(url),null)
+  assert.ok(validSnapshot({month:'2026-10',balance:75,income:100,expense:25,recent:[],days:[]}))
+  assert.ok(!validSnapshot({month:'2026-10',balance:NaN,income:100,expense:25,recent:[],days:[]}))
+  const { SERVER_URL, canRestoreSession } = require('../src/config/server.ts')
+  assert.equal(canRestoreSession(SERVER_URL), true)
+  assert.equal(canRestoreSession(SERVER_URL + '/'), true)
+  assert.equal(canRestoreSession('https://outro.example'), false)
+  assert.equal(canRestoreSession(null), false)
+  const today = '2026-10-15'
+  assert.deepEqual(resolvePeriod({ type: 'all', period: 'month', month: '2024-02' }, today), { from: '2024-02-01', to: '2024-02-29' })
+  assert.deepEqual(resolvePeriod({ type: 'all', period: 'month', month: '2025-02' }, today), { from: '2025-02-01', to: '2025-02-28' })
+  assert.deepEqual(resolvePeriod({ type: 'expense', period: 'year', year: 2024, categoryId: 2 }, today), { from: '2024-01-01', to: '2024-12-31' })
+  assert.deepEqual(resolvePeriod({ type: 'all', period: 'lastMonth' }, '2026-01-10'), { from: '2025-12-01', to: '2025-12-31' })
+  assert.deepEqual(resolvePeriod({ type: 'all', period: '30d' }, today), { from: '2026-09-16', to: today })
+  assert.deepEqual(resolvePeriod({ type: 'all', period: 'custom', from: '2025-12-30', to: '2026-01-02' }, today), { from: '2025-12-30', to: '2026-01-02' })
+  assert.ok(nextRange({ start: '2024-01-01', end: null }, '2025-01-01').error)
+  assert.equal(nextRange({ start: '2024-01-01', end: null }, '2024-12-31').error, undefined)
+
+  configureApi({ baseUrl: 'http://fixture.invalid', token: null })
+
+  const calls = []
+  global.fetch = async url => { calls.push(new URL(url)); return Response.json({ items: [], total: 0 }) }
+  const filters = { type: 'expense', category_id: 2, payment_method: 'debit_card', card_id: 7 }
+  await listTransactions({ ...filters, from: '2026-10-01', to: '2026-10-31', offset: 50 })
+  await getCashflow('2026-10-01', '2026-10-31', filters)
+  for (const url of calls) for (const [key, value] of Object.entries(filters)) assert.equal(url.searchParams.get(key), String(value))
+  assert.equal(calls[0].searchParams.get('offset'), '50')
+  global.fetch = async () => Response.json({ detail: 'Falha de teste' }, { status: 500 })
+  await assert.rejects(listTransactions(), /servidor encontrou um problema/)
+  global.fetch = async () => Response.json({detail:'Not Found'}, {status:404})
+  await assert.rejects(listTransactions(), /versões diferentes/)
+  global.fetch = async () => new Response('<html>proxy error</html>', {status:502})
+  await assert.rejects(listTransactions(), /servidor encontrou um problema/)
+  global.fetch = async () => new Response('invalid json', {status:200})
+  await assert.rejects(listTransactions(), /não conseguiu ler/)
+  global.fetch = async () => { throw new TypeError('Network request failed') }
+  await assert.rejects(listTransactions(), /Confira sua internet/)
+  global.fetch = async () => Response.json({detail:'bad', request_id:'a'.repeat(32)}, {status:422})
+  await assert.rejects(listTransactions(), /Código de atendimento: a{32}/)
+  let expired = false
+  configureApi({token:'test-only',onUnauthorized:()=>{expired=true}})
+  global.fetch = async () => Response.json({detail:'expired'}, {status:401})
+  await assert.rejects(listTransactions(), /sessão expirou/)
+  assert.equal(expired,true)
+  configureApi({token:null})
+  const savedTimeout = global.setTimeout
+  global.setTimeout = (fn) => savedTimeout(fn, 0)
+  global.fetch = async (_, options) => new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new Error('aborted'))))
+  await assert.rejects(listTransactions(), /demorou demais/)
+  global.setTimeout = savedTimeout
+  const { planFinancialReminders } = require('../src/services/reminders/plan.ts')
+  const reminders = planFinancialReminders({ salary_day: 31, bills_day: 1, cycle_day: 31 }, new Date(2024,1,28,12), new Date(2024,2,2))
+  assert.equal(reminders.length, 3)
+  assert.equal(reminders[0].at.getDate(), 29)
+  assert.equal(reminders[0].at.getHours(), 8)
+  assert.equal(new Set(reminders.map(r => r.key)).size, 3)
+  const { parseRelease, requiresUpdate } = require('../src/utils/updatesPolicy.ts')
+  const release = {version:'1.3.0',build_number:4,min_build_number:4,android_apk:'mobile-4.apk',md5:'a'.repeat(32),notes:''}
+  assert.equal(requiresUpdate(parseRelease(release),3),true)
+  assert.equal(requiresUpdate(release,4),false)
+  assert.equal(requiresUpdate(null,3),false)
+  for (const invalid of [{android_apk:'../file.apk'},{android_apk:'https://evil.test/app.apk'},{md5:'bad'},{min_build_number:5},{build_number:NaN},{notes:null}]) assert.throws(() => parseRelease({...release,...invalid}))
+  console.log('OK: períodos, filtros da API, erros, lembretes mensais e validação de atualizações.')
+}
+main().catch(err => { console.error(err); process.exitCode = 1 })

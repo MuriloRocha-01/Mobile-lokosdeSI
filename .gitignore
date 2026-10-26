@@ -42,7 +42,13 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+/mobile/ios
+/mobile/android
 
 .preview-export/
+/mobile/.preview-export/
+
+# secrets
+.env
+.env.*
+!.env.example
