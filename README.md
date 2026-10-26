@@ -49,7 +49,7 @@ Detalhes e variáveis de ambiente no [README do backend](backend/README.md).
 
 O arquivo `render.yaml` define um serviço web Python com `rootDir: backend`. No Render, crie um **Blueprint** apontando para este repositório (ou um Web Service com Root Directory `backend`, build `pip install -r requirements.txt` e start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). O plano gratuito não tem disco persistente: o SQLite é apagado a cada deploy. Para manter os dados, use um disco (plano pago) ou um banco externo.
 
-Depois de publicar, troque `DEFAULT_SERVER_URL` em `mobile/src/config/server.ts` pela URL do Render e gere um novo build do app.
+O app aponta para `https://mobile-lokosdesi-backend.onrender.com` (`DEFAULT_SERVER_URL` em `mobile/src/config/server.ts`). Ao trocar de host, altere essa constante e gere um novo build.
 
 ## Organização
 

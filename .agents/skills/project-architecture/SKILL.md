@@ -60,7 +60,7 @@ Use `EmptyState` e `NoticeBanner` para estados vazios e confirmações. O ícone
 
 ## Servidor e integrações bancárias do mobile
 
-O servidor de produção fica definido em `mobile/src/config/server.ts` (`DEFAULT_SERVER_URL`; hoje Railway em `https://backend-production-5c98b.up.railway.app`; ao migrar para o Render, troque só essa constante). O login pede apenas e-mail e senha; não exija digitação de endereço/código do servidor. Não reutilize tokens de outro endereço e não embuta credenciais no código. Preserve os contratos FastAPI; não altere o desktop ou crie backend local para esta integração.
+O servidor de produção fica definido em `mobile/src/config/server.ts` (`DEFAULT_SERVER_URL`; hoje Render em `https://mobile-lokosdesi-backend.onrender.com`; para trocar de host, altere só essa constante). O login pede apenas e-mail e senha; não exija digitação de endereço/código do servidor. Não reutilize tokens de outro endereço e não embuta credenciais no código. Preserve os contratos FastAPI; não altere o desktop ou crie backend local para esta integração.
 
 Importação em `services/statementParser.ts`, `statementFile.ts` e `statementImport.ts`, com composição em `screens/ImportStatementScreen.tsx`: leia OFX/CSV localmente, valide centavos/datas e mantenha prévia, categorias e confirmação antes de enviar pela API existente. Arquivos até 2 MB, 1.000 registros e moeda BRL. CSV exige mapeamento/convenção de sinal; não presuma formatos fixos dos bancos. A leitura nativa usa DocumentPicker e FileSystem Expo 57; apague a cópia de cache após a leitura. Não persista extratos ou seus textos em logs.
 
