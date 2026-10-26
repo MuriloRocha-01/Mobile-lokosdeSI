@@ -13,11 +13,11 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: DATA_ROOT
-        value: /var/data
+        value: /tmp/data
       - key: DATABASE_FILE
-        value: /var/data/Dados/database.db
-    # Sem disco persistente o SQLite e os arquivos somem a cada deploy.
-    # Disco exige plano pago no Render; descomente para usar.
+        value: /tmp/data/Dados/database.db
+    # No plano free so /tmp e gravavel e ele e apagado a cada deploy/reinicio.
+    # Para persistir: plano pago, descomente o disk e mude DATA_ROOT/DATABASE_FILE para /var/data.
     # disk:
     #   name: dados
     #   mountPath: /var/data
