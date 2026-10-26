@@ -11,7 +11,11 @@ const ICONS: Record<string, IconName> = {
   gift: 'gift',
   food: 'silverware-fork-knife',
   transport: 'car',
-  subscriptions: 'repeat',
+  subscriptions: 'play-box-multiple-outline',
+  gym: 'dumbbell',
+  fitness: 'dumbbell',
+  netflix: 'netflix',
+  spotify: 'spotify',
   education: 'school',
   leisure: 'gamepad-variant',
   health: 'heart-pulse',
@@ -41,4 +45,12 @@ export const MAX_EMOJI_CODE_POINTS = 12
 export function cleanEmojiInput(text: string): string | null {
   const kept = Array.from(text).filter((ch) => (ch.codePointAt(0) ?? 0) >= 0xa0 && !/\s/.test(ch))
   return kept.length > MAX_EMOJI_CODE_POINTS ? null : kept.join('')
+}
+
+export function transactionIcon(description: string, fallback: string): string {
+  const label = description.toLowerCase()
+  if (/\b(academia|musculação|gym)\b/.test(label)) return 'gym'
+  if (/\bnetflix\b/.test(label)) return 'netflix'
+  if (/\bspotify\b/.test(label)) return 'spotify'
+  return fallback
 }

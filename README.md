@@ -22,23 +22,26 @@ O app tem 4 abas: **Finanças · Extrato · Agenda · Conta**.
     "sobrou/faltou no mês", % guardado, nº de transações e despesas por categoria com barra. Tem seletor ‹ › de mês.
   - **Receitas** / **Despesas** abrem o **Extrato** já filtrado pelo tipo, no mês atual.
 - **Últimas transações** (15) com link **Ver tudo** para o Extrato.
-  - Toque na linha → **editar**. Segurar → **apagar** (com confirmação).
+  - Toque na linha → **detalhes**, com caneta para editar. Segurar → **apagar** (com confirmação).
   - Transações de gasto fixo mostram um ícone de "repetir".
 - Botão **+** (FAB) para lançar uma nova transação.
 
 ### Extrato (transações por período)
-- Filtro por tipo: **Tudo / Receitas / Despesas**.
+- Filtro por tipo: **Tudo / Receitas / Despesas**, combinado com categoria.
+- **Mês** e **Ano** com setas para navegar; **Escolher período** permite um intervalo de dias.
 - Períodos prontos: **Este mês · Mês passado · 30 dias · Este ano**, ou **Escolher período** com calendário
   (intervalo de até **366 dias**).
 - Cartão de totais do período (receitas, despesas e saldo) e contagem de transações.
-- Lista paginada (50 por vez), puxar para atualizar. Toque edita, segurar apaga.
+- Lista paginada (50 por vez), puxar para atualizar. Toque abre os detalhes; a caneta abre a edição. Segurar apaga.
 - O filtro escolhido é mantido enquanto você edita uma transação e volta.
+- Tocar em uma categoria nos detalhes do saldo abre suas despesas no mês selecionado.
+- O filtro de categoria consulta todas as páginas do período antes de calcular os totais; períodos com muitos lançamentos podem demorar mais até a API oferecer esse filtro.
 
 ### Lançar / editar transação
 - **Despesa** ou **Receita**.
 - **Valor** com o teclado numérico padrão do celular (`decimal-pad`). Aceita `12,50`, `12.50` e `1.234,56`;
   mostra a prévia em reais embaixo.
-- **Motivo** (categoria) em chips com emoji. Chip **＋ Nova** cria uma categoria; **segurar** uma categoria sua
+- **Motivo** (categoria) em um campo compacto; tocar abre a lista com ícones. Chip **＋ Nova** cria uma categoria; **segurar** uma categoria sua
   abre editar/apagar. Categorias padrão do sistema não podem ser apagadas.
   - Categoria nova: nome, emoji (36 sugestões ou qualquer emoji do teclado) e uma de 8 cores, com prévia.
 - **Data**: Hoje / Ontem / calendário.
@@ -82,6 +85,7 @@ npm start          # abre o Expo; leia o QR code com o Expo Go (ou use um dev bu
 - `npm run web` — prévia no navegador (só para ver layout; notificações não existem na web, e `Alert` não funciona
   na web — por isso existe `src/confirm.ts`, que usa `window.confirm` como alternativa).
 - `npx tsc --noEmit` — conferir tipos.
+- `node tests/finance.cjs` — regressão dos períodos, paginação por categoria e totais.
 
 ## Conectar ao servidor
 
@@ -138,3 +142,82 @@ emoji sem corte nos chips, botão voltar do Android fechando o calendário e os 
 - **Fechar o mês:** fechar o período e calcular o resultado do dia em que começou a anotar até o fechamento.
 - **Investimentos:** registrar quanto está guardado (ex.: CDI, bolsa) e acompanhar o % de rendimento.
 - Editar/apagar itens da agenda e data final de rotina no celular.
+
+
+## Perfil, cartões e ciclos
+
+O cadastro abre um questionário com nome, foto opcional, dias de recebimento/contas/ciclo e cartão opcional. O perfil e os cartões ficam no backend. O início de ciclo muda apenas o período dos relatórios: não apaga dívidas, transações ou saldo acumulado. Os dias 29–31 usam o último dia em meses menores.
+
+Receitas somam e despesas subtraem do cartão informado. Dinheiro não tem cartão; Pix pode ter. Crédito, débito e vale-alimentação exigem cartão. Trata-se do saldo dos registros, sem conexão bancária ou pagamento real de faturas. Lançamentos antigos continuam sem método/cartão até serem editados.
+
+## Ativação no servidor e atualizações Android
+
+Backend alterado: E:/PROJETOS/armazenamento-backup/backend. Instale requirements.txt no ambiente do servidor e reinicie o backend para carregar as rotas e a migração aditiva. Faça o backup habitual do banco antes de atualizar o servidor. O aplicativo precisa desse backend atualizado para concluir o perfil.
+
+Esta versão requer um novo APK (novos módulos nativos). Instale primeiro o build 3, versão 1.2.0, com a mesma assinatura dos APKs anteriores. Builds antigos sem o verificador precisam dessa primeira instalação manual.
+
+Para lançamentos seguintes, aumente version/versionCode no app.json, gere o APK com o mesmo perfil e assinatura e publique no UPDATES_ROOT do servidor:
+
+~~~powershell
+& E:/PROJETOS/armazenamento-backup/publish-mobile-update.ps1 -Apk C:/caminho/app.apk -UpdatesRoot F:/Atualizacoes -Version 1.3.0 -BuildNumber 4
+~~~
+
+Substitua os caminhos pelo APK e UPDATES_ROOT reais. Por padrão MinimumBuild é o build publicado: versões anteriores ficam bloqueadas ao consultar /updates/mobile/manifest. O app baixa automaticamente via HTTPS, verifica MD5 contra corrupção e pede a confirmação de instalação do Android. O sistema pode exigir autorização para instalar apps desta origem. Nunca desinstale o aplicativo para atualizar. O APK deve manter a assinatura e o identificador originais.
+
+Uma exigência já recebida fica guardada e continua bloqueando offline. Sem conexão, não é possível descobrir uma exigência ainda não recebida. A verificação está desativada no Expo Go/desenvolvimento e web; o fluxo APK é exclusivo de Android. Para distribuição pela Play Store, substituir esse instalador pelo fluxo da loja.
+
+Correções JS/assets compatíveis usam EAS Update (canal preview ou production do build). Publique com npx eas-cli update --channel preview --message "Descrição da correção"; o Expo consulta e aplica atualizações compatíveis ao iniciar. Mudanças nativas exigem novo APK. Nenhuma atualização foi publicada automaticamente por estas alterações.
+
+Lembretes são locais, agendados para os próximos 45 dias e renovados ao abrir o app. Sem abrir por mais tempo, novos avisos precisam de sincronização. Ao sair da conta, os avisos agendados são removidos. A entrega depende da permissão e das restrições de bateria do sistema.
+
+Validação: node tests/finance.cjs; npx tsc --noEmit; no backend, python tests/test_mobile.py usa somente banco temporário.
+
+
+### Widgets Android
+
+Em Conta, use Adicionar resumo financeiro ou Adicionar agenda do mês. Também é possível adicionar pelo menu Widgets do launcher. O resumo mostra o saldo acumulado até hoje e as cinco últimas despesas do mês; a agenda mostra receitas e despesas por dia (dias futuros são previstos). Os atalhos abrem o cadastro e os dias abrem o extrato filtrado. O horário dos lançamentos é opcional; registros antigos não recebem horário inventado.
+
+Os widgets consultam `/finance/widget?today=YYYY-MM-DD` com a sessão guardada no SecureStore. Atualizam ao abrir o app, alterar lançamentos, tocar em Atualizar e pelo agendamento Android de 30 minutos (sujeito à bateria). Falhas exibem uma mensagem sem manter valores antigos; sair da conta limpa os widgets. Exigem novo APK com o módulo nativo, não funcionam no Expo Go ou na web.
+
+Verificações: `npx tsc --noEmit`, `node tests/finance.cjs`, `node tests/widgets.cjs`, `npx expo prebuild --platform android --no-install`. O teste de widgets usa os componentes e o renderizador reais da biblioteca; tamanho, fonte, cliques e atualização em segundo plano ainda precisam ser conferidos no aparelho.
+
+
+### Validação da interface no MSI (17/10/2026)
+
+Interface clara com perfil, categorias, gráfico mensal/seis meses/período, extrato e últimas transações agrupados por dia. Gráfico usa react-native-svg na versão compatível com SDK 57. Nenhuma build EAS foi gerada nesta etapa.
+
+Testado no MSI App Player via Expo Go 57.0.9 com Metro local: login, painel, filtros de 11 a 13/10, calendário de lançamento, data preservada ao mudar para receita e gráfico com total igual ao extrato. Testado também com densidade temporária de 400 dpi (largura de 360 dp), depois restaurada para os 240 dpi originais. Não foram salvos ou excluídos lançamentos durante a conferência. Corrigidos no teste: carregamento de notificações incompatíveis com Expo Go, espaço vazio no calendário, primeiro toque com campo focado e alinhamento do gráfico.
+
+Para repetir: ativar ADB no MSI, executar `npx expo start --go --lan --port 8081`, usar o HD-Adb do MSI para `reverse tcp:8081 tcp:8081` e abrir `exp://127.0.0.1:8081` no Expo Go. O endereço localhost do Metro pode escutar só em IPv6 no Windows; o modo LAN aceita o encaminhamento IPv4 do ADB. Notificações e widgets nativos ficam fora dessa verificação no Expo Go e exigem APK próprio. Não publicar nem gerar nova build sem solicitação do usuário.
+
+## Planejamento financeiro
+
+No painel, **Planejamento** abre previsão de seis meses, limites mensais por categoria e faturas de crédito. Limites são salvos por conta no backend e se repetem mensalmente. Faturas usam fechamento/vencimento configuráveis; compras no dia do fechamento entram na fatura que fecha naquele dia. Débito, Pix e dinheiro não entram nas faturas.
+
+A previsão é uma estimativa dos registros e recorrências, não uma confirmação bancária de pagamento. O primeiro mês considera movimentos após hoje; o saldo projetado acumula os meses anteriores. Repetições futuras são calculadas em memória. Cartões sem ciclo configurado usam a data do lançamento. Configurar/alterar um ciclo recalcula as estimativas.
+
+Em **Nova transação → Despesa → Compra parcelada**, informe o preço à vista, quantidade e data da primeira parcela. Opcionalmente informe o valor real cobrado por parcela, já com juros; o app mostra total e acréscimo (não infere taxa de juros). Sem juros, o resto da divisão em centavos vai nas primeiras parcelas. Todas são gravadas em uma única transação de banco. No crédito, a primeira data precisa coincidir com o vencimento configurado. Editar ou excluir uma parcela afeta somente ela.
+
+**Detalhes → Excluir despesa/receita** pede confirmação. Excluir a origem de uma repetição encerra as próximas repetições, preservando as ocorrências existentes. Ocorrências recorrentes excluídas não são recriadas.
+
+Validação local: `npx tsc --noEmit`, `node tests/planning.cjs`, `node tests/finance.cjs`, `node tests/widgets.cjs`; backend: `.test-venv/Scripts/python.exe tests/test_planning.py` (banco temporário). A conferência visual no MSI desta alteração aguarda o usuário liberar o emulador. Exportação JavaScript local não gera APK e não envia build ao EAS.
+
+
+### Contas, assinaturas e metas
+
+Planejamento agora inclui **Contas**, **Assinaturas** e **Metas**. O extrato filtra pendentes ou pagas/recebidas; detalhes permitem confirmar a baixa hoje ou voltar para pendente. O formulário permite escolher a situação. Saldo, gráficos e cartões contam somente baixas confirmadas, pela data da baixa. No filtro de pagas/recebidas, o extrato também usa essa data; nas demais situações usa a data prevista/do lançamento. Alterar a data prevista de um registro já pago preserva a data da baixa.
+
+Novas parcelas e ocorrências recorrentes ficam pendentes. Vencidas continuam na previsão do mês atual até a confirmação. Assinaturas mostram equivalentes mensais/anuais (não são cobrança adicional); encerrar a repetição preserva registros existentes e não cancela o contrato no fornecedor.
+
+Metas guardam nome, alvo e total reservado. Reservar ou liberar não cria transações; o painel separa saldo realizado, reservado e livre. A reserva nova é limitada ao saldo livre com verificação serializada no SQLite. Se despesas posteriores reduzirem o saldo abaixo das reservas, o app mostra o saldo livre negativo e permite reduzir a reserva. Excluir uma meta libera sua reserva.
+
+A migração faz backup do SQLite antes de adicionar status/data de baixa; registros antigos até o dia da migração são preservados como realizados e os futuros ficam pendentes. Novas baixas usam o dia local de São Paulo. Testes adicionais: `tests/test_management.py` no backend (baixa/reversão, adiantamento, isolamento, reservas concorrentes, recorrências concorrentes e migração).
+
+
+### Sessão persistente no celular
+
+O app renova o acesso de 24 horas usando uma credencial de sessão guardada no SecureStore. O backend guarda somente o SHA-256 dessa credencial, vinculado à conta e ao hash da senha. A validade da sessão é de 180 dias desde a última renovação. Logout revoga a renovação no servidor quando há conexão e remove os dados locais mesmo offline; o token de acesso já emitido continua sujeito à validade original. Troca de senha invalida a renovação.
+
+Requisições simultâneas compartilham uma renovação; só uma resposta 401 permite repetir a solicitação, uma vez. Falhas de rede/servidor preservam a sessão. Uma renovação atrasada não restaura um login encerrado. Tokens antigos ainda válidos são migrados ao abrir o novo app; tokens antigos já expirados exigem um último login. Não se armazena a senha.
+
+Validação: `node tests/session.cjs`, `npx tsc --noEmit`, exportação Android local; backend `tests/test_sessions.py` em banco temporário.

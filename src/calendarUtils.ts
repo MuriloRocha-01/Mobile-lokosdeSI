@@ -1,7 +1,7 @@
 // Lógica pura (sem React Native) do calendário, do período do Extrato e do valor digitado no teclado padrão.
 // Fica separada das telas para poder ser testada de verdade em Node.
 import { addDays, fromIso } from './format'
-import type { TransactionType } from './types'
+import type { PaymentMethod, TransactionType } from './types'
 
 export const MONTH_NAMES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 export const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'] // a semana começa no domingo, como no calendário do celular
@@ -79,8 +79,14 @@ export type ExtratoType = 'all' | TransactionType
 export type ExtratoPeriod = 'month' | 'lastMonth' | '30d' | 'year' | 'custom'
 
 export interface ExtratoFilter {
+  status?: 'pending' | 'settled'
   type: ExtratoType
   period: ExtratoPeriod
+  categoryId?: number
+  paymentMethod?: PaymentMethod
+  cardId?: number
+  month?: string
+  year?: number
   /** Só em `period: 'custom'`. */
   from?: string
   to?: string
@@ -90,6 +96,11 @@ export const DEFAULT_EXTRATO: ExtratoFilter = { type: 'all', period: 'month' }
 
 /** De/até (inclusive) de um filtro, a partir do dia de hoje. */
 export function resolvePeriod(filter: ExtratoFilter, today: string): { from: string; to: string } {
+  if (filter.period === 'month' && filter.month) {
+    const [year, month] = filter.month.split('-').map(Number)
+    return { from: isoOf(year, month - 1, 1), to: isoOf(year, month - 1, new Date(year, month, 0).getDate()) }
+  }
+  if (filter.period === 'year' && filter.year) return { from: isoOf(filter.year, 0, 1), to: isoOf(filter.year, 11, 31) }
   const [year, month] = today.split('-').map(Number)
   const month0 = month - 1
   if (filter.period === 'lastMonth') {

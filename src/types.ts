@@ -10,6 +10,7 @@ export interface AuthUser {
 }
 
 export interface AuthResult {
+  refresh_token?: string | null
   access_token: string
   user: AuthUser
 }
@@ -29,6 +30,14 @@ export interface TransactionCategory {
 export type TransactionRecurrence = 'none' | 'monthly' | 'yearly'
 
 export interface Transaction {
+  status?: 'pending' | 'settled'
+  settled_at?: string | null
+  installment_number?: number | null
+  installment_count?: number | null
+  time?: string | null
+  payment_method: PaymentMethod | null
+  card_id: number | null
+  card: FinanceCard | null
   id: number
   description: string
   amount: number
@@ -66,6 +75,9 @@ export interface PeriodTotals {
 }
 
 export interface FinanceSummary {
+  start?: string
+  end?: string
+  expenses_by_card?: CardShare[]
   month: string
   income: number
   expense: number
@@ -85,6 +97,7 @@ export interface FinanceSummary {
 
 /** GET /finance/cashflow: receitas e despesas de um período qualquer (até 366 dias). */
 export interface Cashflow {
+  days: { date: string; income: number; expense: number }[]
   start: string
   end: string
   income: number
@@ -110,4 +123,26 @@ export interface AgendaItem {
   recurrence_until: string | null
   /** Avisar quantos minutos antes (0 = na hora); null = sem lembrete. */
   reminder_minutes: number | null
+}
+
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'meal_voucher'
+export interface FinanceCard { id: number; name: string; last_four: string; income?: number; expense?: number; balance?: number }
+export interface FinancialProfile { name: string; salary_day: number; bills_day: number; cycle_day: number; photo: string | null }
+export interface ProfileInput extends FinancialProfile { card?: { name: string; last_four: string } }
+export interface CardShare { card_id: number; name: string; last_four: string; total: number; percent: number }
+export interface PlanningData {
+  today: string; opening: number
+  forecast: { month: string; income: number; expense: number; balance: number }[]
+  budgets: { category_id: number; name: string; icon: string; color: string; limit: number | null; spent: number }[]
+  cards: { id: number; name: string; last_four: string; closing_day: number | null; due_day: number | null }[]
+  invoices: { card_id: number; month: string; due: string; total: number; items: { id: number | null; description: string; date: string; amount: number; projected: boolean; status?: 'pending' | 'settled' }[] }[]
+}
+
+export interface SavingsGoal { id: number; name: string; target: number; reserved: number }
+export interface FinanceOverview {
+  balance: number; reserved: number; available: number
+  pending: { income: number; expense: number }
+  goals: SavingsGoal[]
+  monthly: number; annual: number
+  subscriptions: { id: number; name: string; amount: number; recurrence: 'monthly' | 'yearly'; monthly: number; annual: number; starts: string; until: string | null }[]
 }

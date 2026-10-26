@@ -1,7 +1,15 @@
+import { widgetsSupported, pinWidget, WIDGET_NAMES } from '../widgets'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { CardFormModal } from '../components/CardFormModal'
+import { OnboardingScreen } from './OnboardingScreen'
+import { useProfile } from '../profile'
+import { getCards, errorMessage } from '../api'
+import { brl, todayIso } from '../format'
+import { cardLabel } from '../payment'
+import type { FinanceCard } from '../types'
 import { useAuth } from '../auth'
 import { remindersSupported, sendTestReminder, setEnabled, status as reminderStatus, syncReminders } from '../reminders'
 import type { ReminderStatus } from '../reminders'
@@ -11,9 +19,22 @@ import { colors, radius } from '../theme'
 export function AccountScreen({ onRemindersChanged }: { onRemindersChanged?: () => void }) {
   const { user, server, signOut } = useAuth()
   const insets = useSafeAreaInsets()
+  const { profile, save } = useProfile()
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [cardForm, setCardForm] = useState(false)
+  const [cards, setCards] = useState<FinanceCard[]>([])
+  const loadCards = useCallback(async () => { try { setCards(await getCards(todayIso())) } catch (err) { setMessage(errorMessage(err)) } }, [])
+  useEffect(() => { void loadCards() }, [loadCards])
   const [reminders, setReminders] = useState<ReminderStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [widgetMessage, setWidgetMessage] = useState('')
+  async function addWidget(name: typeof WIDGET_NAMES[number]) {
+    try {
+      const supported = await pinWidget(name)
+      setWidgetMessage(supported ? 'Confirme a inclusão na tela inicial do celular.' : 'Na tela inicial, segure um espaço vazio, abra Widgets e procure Lokos de S.I.')
+    } catch { setWidgetMessage('Não foi possível adicionar. Na tela inicial, segure um espaço vazio e procure o app em Widgets.') }
+  }
 
   const refresh = useCallback(async () => setReminders(await reminderStatus()), [])
   useEffect(() => {
@@ -21,44 +42,50 @@ export function AccountScreen({ onRemindersChanged }: { onRemindersChanged?: () 
   }, [refresh])
 
   async function toggle(value: boolean) {
-    setBusy(true)
-    setMessage('')
-    await setEnabled(value)
-    setReminders(await syncReminders()) // liga: pede a permissão e agenda; desliga: cancela tudo
-    setBusy(false)
-    onRemindersChanged?.()
+    setBusy(true); setMessage('')
+    try {
+      await setEnabled(value)
+      const result = await syncReminders()
+      setReminders(result); setMessage(result.error ?? '')
+      onRemindersChanged?.()
+    } catch (err) { setMessage(errorMessage(err)) } finally { setBusy(false) }
   }
 
   async function syncNow() {
-    setBusy(true)
-    setMessage('')
-    const result = await syncReminders()
-    setReminders(result)
-    setMessage(result.permission ? `${result.scheduled} aviso(s) agendado(s) para os próximos dias.` : 'O celular não permitiu avisos deste app. Libere nas configurações do sistema.')
-    setBusy(false)
+    setBusy(true); setMessage('')
+    try {
+      const result = await syncReminders()
+      setReminders(result)
+      setMessage(result.error ?? (result.permission ? result.scheduled + ' aviso(s) agendado(s) para os próximos dias.' : 'Libere os avisos nas configurações do celular.'))
+    } catch (err) { setMessage(errorMessage(err)) } finally { setBusy(false) }
   }
 
   async function test() {
     setBusy(true)
-    const ok = await sendTestReminder()
-    setMessage(ok ? 'Aviso de teste enviado: ele chega em 5 segundos.' : 'O celular não permitiu avisos deste app. Libere nas configurações do sistema.')
-    setBusy(false)
+    try {
+      const ok = await sendTestReminder()
+      setMessage(ok ? 'Aviso de teste enviado: ele chega em 5 segundos.' : 'Libere os avisos nas configurações do celular.')
+    } catch (err) { setMessage(errorMessage(err)) } finally { setBusy(false) }
   }
 
+  if (editingProfile) return <OnboardingScreen remindersEnabled={reminders?.enabled ?? true} name={profile.name} initial={profile} onCancel={() => setEditingProfile(false)} onSave={async (input, enabled) => { await save(input); await setEnabled(enabled); setEditingProfile(false); void loadCards(); void syncReminders(); onRemindersChanged?.() }} />
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
       <Text style={styles.title}>Conta</Text>
 
       <View style={styles.card}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(user?.name ?? '?').charAt(0).toUpperCase()}</Text>
+          {profile.photo ? <Image source={{ uri: profile.photo }} style={{ width: 44, height: 44, borderRadius: 22 }} /> : <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>}
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.name}>{user?.name ?? 'Conectado'}</Text>
+          <Text style={styles.name}>{profile.name}</Text>
           {user?.email ? <Text style={styles.meta}>{user.email}</Text> : null}
         </View>
       </View>
 
+      <Pressable accessibilityRole="button" onPress={() => setEditingProfile(true)} style={styles.card}><MaterialCommunityIcons name="pencil-outline" size={20} color={colors.text} /><View style={styles.cardBody}><Text style={styles.name}>Editar perfil financeiro</Text><Text style={styles.meta}>Recebo dia {profile.salary_day} · Contas dia {profile.bills_day}</Text><Text style={styles.meta}>Novo ciclo dia {profile.cycle_day}</Text></View></Pressable>
+      <View style={[styles.card, styles.column]}><Text style={styles.name}>Meus cartões</Text>{cards.map((card) => <View key={card.id} style={styles.row}><MaterialCommunityIcons name="credit-card-outline" size={20} color={colors.muted} /><View style={styles.cardBody}><Text style={styles.value}>{cardLabel(card)}</Text><Text style={styles.meta}>Saldo dos registros: {brl(card.balance ?? 0)}</Text></View></View>)}<Text style={styles.note}>Saldo calculado pelas receitas e despesas registradas. Não consulta o saldo ou limite do banco.</Text><Pressable accessibilityRole="button" style={styles.action} onPress={() => setCardForm(true)}><Text style={styles.actionText}>+ Adicionar cartão</Text></Pressable></View>
+      <CardFormModal visible={cardForm} onClose={() => setCardForm(false)} onSaved={() => void loadCards()} />
       <View style={styles.card}>
         <MaterialCommunityIcons name="server-network" size={24} color={colors.muted} />
         <View style={styles.cardBody}>
@@ -69,12 +96,19 @@ export function AccountScreen({ onRemindersChanged }: { onRemindersChanged?: () 
         </View>
       </View>
 
-      {/* Lembretes da agenda */}
+      {widgetsSupported ? <View style={[styles.card, styles.column]}>
+        <Text style={styles.name}>Widgets na tela inicial</Text>
+        <Text style={styles.note}>Saldo e lançamentos visíveis sem abrir o app. Toque em um dia para consultar os detalhes; use os atalhos para registrar receitas e despesas.</Text>
+        {WIDGET_NAMES.map((name, index) => <Pressable key={name} accessibilityRole="button" style={styles.action} onPress={() => void addWidget(name)}><MaterialCommunityIcons name="widgets-outline" size={18} color={colors.text} /><Text style={styles.actionText}>{index === 0 ? 'Adicionar resumo financeiro' : 'Adicionar agenda do mês'}</Text></Pressable>)}
+        <Text style={styles.note}>Atualiza ao abrir o app, salvar um lançamento ou tocar em Atualizar. A atualização em segundo plano depende do Android. Dias futuros mostram valores previstos.</Text>
+        {widgetMessage ? <Text accessibilityLiveRegion="polite" style={styles.note}>{widgetMessage}</Text> : null}
+      </View> : null}
+      {/* Lembretes e avisos financeiros */}
       <View style={[styles.card, styles.column]}>
         <View style={styles.row}>
           <MaterialCommunityIcons name="bell-ring-outline" size={24} color={colors.muted} />
           <View style={styles.cardBody}>
-            <Text style={styles.name}>Lembretes da agenda</Text>
+            <Text style={styles.name}>Lembretes e avisos financeiros</Text>
             <Text style={styles.meta}>
               {!remindersSupported
                 ? 'Só funcionam no aplicativo do celular.'

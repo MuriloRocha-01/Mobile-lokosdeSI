@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MAX_RANGE_DAYS, dateBr, dateShort, daysBetween } from '../calendarUtils'
 import type { RangeSel } from '../calendarUtils'
@@ -17,9 +17,9 @@ export function DateSheet(props: Props) {
   return (
     // `onRequestClose` (botão voltar do Android) fecha só a folha, sem passar pelo "voltar" do app.
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, props.mode === 'single' && styles.centered]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Fechar calendário" />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={[styles.sheet, props.mode === 'single' && styles.compact]} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
           <Text style={styles.title}>{title}</Text>
           {props.mode === 'single' ? (
             <CalendarPicker
@@ -35,7 +35,8 @@ export function DateSheet(props: Props) {
           ) : (
             <RangeBody value={props.value} maxDays={props.maxDays} minDate={props.minDate} maxDate={props.maxDate} onCancel={onClose} onConfirm={props.onConfirm} />
           )}
-        </View>
+          {props.mode === 'single' && <Pressable accessibilityRole="button" onPress={onClose} style={styles.button}><Text style={styles.cancelText}>Fechar</Text></Pressable>}
+        </ScrollView>
       </View>
     </Modal>
   )
@@ -88,7 +89,9 @@ function RangeBody({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingHorizontal: 12, paddingTop: 16, borderWidth: 1, borderColor: colors.border },
+  centered: { justifyContent: 'center', alignItems: 'center', padding: 16 },
+  compact: { width: '100%', maxWidth: 380, borderRadius: radius.xl, flexGrow: 0 },
+  sheet: { flexGrow: 0, maxHeight: '90%', backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingHorizontal: 12, paddingTop: 16, borderWidth: 1, borderColor: colors.border },
   title: { color: colors.muted, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', marginBottom: 8 },
   summary: { color: colors.text, fontSize: 14, textAlign: 'center', marginTop: 10, marginBottom: 4 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 8 },

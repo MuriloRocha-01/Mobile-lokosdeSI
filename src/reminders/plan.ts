@@ -66,3 +66,22 @@ export function planReminders(rows: AgendaRow[], now: Date, limit: number): Plan
   planned.sort((a, b) => a.at.getTime() - b.at.getTime() || a.key.localeCompare(b.key))
   return planned.slice(0, limit)
 }
+
+/** Datas financeiras mensais, mantendo saldos e histórico. */
+export function planFinancialReminders(profile: { salary_day: number; bills_day: number; cycle_day: number }, now: Date, through: Date): PlannedReminder[] {
+  const result: PlannedReminder[] = []
+  const events = [
+    { key: 'salary', day: profile.salary_day, title: 'Dia de recebimento', body: 'Confira o recebimento e registre a entrada no cartão ou na conta certa.' },
+    { key: 'bills', day: profile.bills_day, title: 'Dia de conferir suas contas', body: 'Revise os pagamentos de hoje. Pendências continuam no seu histórico.' },
+    { key: 'cycle', day: profile.cycle_day, title: 'Seu novo ciclo começou', body: 'Os totais do período recomeçaram. Seu saldo e histórico continuam guardados.' },
+  ]
+  for (let month = new Date(now.getFullYear(), now.getMonth(), 1); month <= through; month = new Date(month.getFullYear(), month.getMonth() + 1, 1)) {
+    for (const item of events) {
+      if (!Number.isInteger(item.day) || item.day < 1 || item.day > 31) continue
+      const last = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+      const at = new Date(month.getFullYear(), month.getMonth(), Math.min(item.day, last), ALL_DAY_HOUR)
+      if (at.getTime() > now.getTime() + 5000 && at <= through) result.push({ key: 'finance|' + item.key + '|' + at.getTime(), title: item.title, body: item.body, at })
+    }
+  }
+  return result.sort((a, b) => a.at.getTime() - b.at.getTime() || a.key.localeCompare(b.key))
+}

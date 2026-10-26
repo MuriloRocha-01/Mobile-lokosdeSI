@@ -8,9 +8,10 @@ import { colors, radius } from '../theme'
 
 /** Primeira tela: o endereço do servidor (o PC onde o Lokos de S.I roda) e a conta. Só na primeira vez. */
 export function LoginScreen() {
-  const { signIn, server: savedServer } = useAuth()
+  const { signIn, sessionMessage } = useAuth()
   const insets = useSafeAreaInsets()
-  const [server, setServer] = useState(savedServer)
+  const [registering, setRegistering] = useState(false)
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -23,7 +24,8 @@ export function LoginScreen() {
     setBusy(true)
     setError('')
     try {
-      await signIn(server, email, password)
+      if (registering && !name.trim()) throw new Error('Digite seu nome.')
+      await signIn(email, password, registering ? name : undefined)
     } catch (err) {
       setError(errorMessage(err))
       setBusy(false)
@@ -37,22 +39,9 @@ export function LoginScreen() {
           <MaterialCommunityIcons name="orbit" size={30} color={colors.onPrimary} />
         </View>
         <Text style={styles.title}>Lokos de S.I</Text>
-        <Text style={styles.subtitle}>Entre na sua conta do servidor para lançar gastos de onde estiver.</Text>
+        <Text style={styles.subtitle}>Entre na sua conta para organizar suas finanças.</Text>
 
-        <Text style={styles.label}>Servidor</Text>
-        <TextInput
-          value={server}
-          onChangeText={setServer}
-          placeholder="https://meu-pc.tail1234.ts.net"
-          placeholderTextColor={colors.faint}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          returnKeyType="next"
-          onSubmitEditing={() => emailRef.current?.focus()}
-          style={styles.input}
-        />
-
+        {registering && <><Text style={styles.label}>Nome</Text><TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor={colors.faint} maxLength={100} autoCapitalize="words" style={styles.input} /></>}
         <Text style={styles.label}>E-mail</Text>
         <TextInput
           ref={emailRef}
@@ -82,17 +71,18 @@ export function LoginScreen() {
           style={styles.input}
         />
 
-        {error ? (
+        {error || sessionMessage ? (
           <Text style={styles.error} accessibilityRole="alert">
-            {error}
+            {error || sessionMessage}
           </Text>
         ) : null}
 
         <Pressable onPress={() => void submit()} disabled={busy} accessibilityRole="button" style={({ pressed }) => [styles.button, (busy || pressed) && styles.buttonDim]}>
-          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Entrar</Text>}
+          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>{registering ? 'Criar conta' : 'Entrar'}</Text>}
         </Pressable>
 
-        <Text style={styles.hint}>O servidor é o endereço do PC onde o app Lokos de S.I está aberto (o mesmo que aparece na aba Convidados do desktop).</Text>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { setRegistering(!registering); setError('') }} style={{ paddingVertical: 16 }}><Text style={{ color: colors.income, textAlign: 'center' }}>{registering ? 'Já tenho conta · Entrar' : 'Ainda não tenho conta · Criar conta'}</Text></Pressable>
+        {registering && <Text style={styles.hint}>Senha com pelo menos 8 caracteres. Em seguida, vamos montar seu perfil financeiro.</Text>}
       </ScrollView>
     </KeyboardAvoidingView>
   )

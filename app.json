@@ -2,10 +2,10 @@
   "expo": {
     "name": "Lokos de S.I",
     "slug": "ecossitema-murilo-mobile",
-    "version": "1.1.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.murilo.ecossistema"
@@ -19,22 +19,71 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "br.com.murilo.ecossistema",
-      "versionCode": 2
+      "versionCode": 8,
+      "permissions": [
+        "REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Escolha uma foto para seu perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "FinanceSummary",
+              "label": "Lokos · Saldo e despesas",
+              "description": "Saldo e últimas despesas do mês",
+              "minWidth": "280dp",
+              "minHeight": "300dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 4,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "FinanceAgenda",
+              "label": "Lokos · Agenda financeira",
+              "description": "Receitas e despesas de cada dia do mês",
+              "minWidth": "280dp",
+              "minHeight": "300dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 4,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
-    "backgroundColor": "#0f111a",
+    "backgroundColor": "#f7f8fa",
     "scheme": "ecossistema",
     "extra": {
       "eas": {
         "projectId": "76a10a7c-19f8-4378-a424-be01e36a06a6"
       }
     },
-    "owner": "dreitspok"
+    "owner": "dreitspok",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/76a10a7c-19f8-4378-a424-be01e36a06a6",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 5000
+    }
   }
 }
+

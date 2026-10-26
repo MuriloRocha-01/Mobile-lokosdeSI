@@ -1,9 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { shiftMonth } from '../calendarUtils'
-import { errorMessage, getSummary } from '../api'
+import { dateBr, shiftMonth } from '../calendarUtils'
+import { errorMessage, getCycleSummary, getSummary } from '../api'
 import { CategoryBadge } from '../components/CategoryBadge'
 import { brl, monthTitle, pct, todayIso } from '../format'
 import { tap } from '../haptics'
@@ -18,23 +18,27 @@ function changeColor(value: number | null, goodWhenUp: boolean): string {
   return value > 0 === goodWhenUp ? colors.income : colors.expense
 }
 
-/** Detalhes do "Saldo atual": o mês escolhido (‹ ›), comparação com o mês anterior, quanto sobrou e para onde foi o dinheiro. */
-export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
+/** Detalhes do "Saldo atual": o mês escolhido (‹ ›), comparação com o período anterior, quanto sobrou e para onde foi o dinheiro. */
+export function BalanceDetailsScreen({ onClose, onOpenCategory, onOpenCard, cardId }: { onClose: () => void; onOpenCategory: (categoryId: number, month: string, from?: string, to?: string) => void; onOpenCard: (cardId: number, from?: string, to?: string) => void; cardId?: number }) {
   const insets = useSafeAreaInsets()
   const currentMonth = todayIso().slice(0, 7)
+  const [cycle, setCycle] = useState(true)
   const [month, setMonth] = useState(currentMonth)
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
   const [error, setError] = useState('')
 
+  const request = useRef(0)
   const load = useCallback(async (target: string) => {
+    const current = ++request.current
     setError('')
     setSummary(null)
     try {
-      setSummary(await getSummary(target))
+      const result = await (cycle ? getCycleSummary(todayIso(), cardId) : getSummary(target, cardId))
+      if (current === request.current) setSummary(result)
     } catch (err) {
-      setError(errorMessage(err))
+      if (current === request.current) setError(errorMessage(err))
     }
-  }, [])
+  }, [cycle, cardId])
 
   useEffect(() => {
     void load(month)
@@ -46,6 +50,7 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
     const target = monthOf(next.year, next.month0)
     if (target > currentMonth) return
     tap()
+    setCycle(false)
     setMonth(target)
   }
 
@@ -65,7 +70,7 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
         <Pressable onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Mês anterior" hitSlop={10} style={styles.stepButton}>
           <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </Pressable>
-        <Text style={styles.month}>{monthTitle(month)}</Text>
+        <Text style={styles.month}>{cycle ? 'Ciclo atual' : monthTitle(month)}</Text>
         <Pressable onPress={() => step(1)} disabled={atCurrent} accessibilityRole="button" accessibilityLabel="Próximo mês" hitSlop={10} style={[styles.stepButton, atCurrent && styles.stepOff]}>
           <MaterialCommunityIcons name="chevron-right" size={28} color={colors.text} />
         </Pressable>
@@ -81,25 +86,26 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
           <ActivityIndicator color={colors.muted} style={styles.loading} />
         ) : (
           <>
+            {summary.start && summary.end && <Text style={styles.hint}>{dateBr(summary.start)} a {dateBr(summary.end)}</Text>}
             <View style={styles.card}>
               <Text style={styles.label}>Saldo acumulado</Text>
               <Text style={styles.big} adjustsFontSizeToFit numberOfLines={1}>
                 {brl(summary.balance)}
               </Text>
-              <Text style={styles.hint}>Tudo que entrou menos tudo que saiu, até o fim de {monthTitle(summary.month)} (inclui lançamentos com data ainda no futuro, dentro do mês).</Text>
-              <Text style={[styles.change, { color: changeColor(summary.balance_change, true) }]}>{pct(summary.balance_change)} em relação ao mês anterior</Text>
+              <Text style={styles.hint}>Tudo que entrou menos tudo que saiu até {summary.end ? dateBr(summary.end) : monthTitle(summary.month)}. O saldo acumulado é preservado na virada do ciclo.</Text>
+              <Text style={[styles.change, { color: changeColor(summary.balance_change, true) }]}>{pct(summary.balance_change)} em relação ao período anterior</Text>
             </View>
 
             <View style={styles.pair}>
               <View style={[styles.miniCard, { borderColor: `${colors.income}40` }]}>
-                <Text style={styles.label}>Receitas do mês</Text>
+                <Text style={styles.label}>Receitas do período</Text>
                 <Text style={[styles.mid, { color: colors.income }]} adjustsFontSizeToFit numberOfLines={1}>
                   {brl(summary.income)}
                 </Text>
                 <Text style={[styles.change, { color: changeColor(summary.income_change, true) }]}>{pct(summary.income_change)}</Text>
               </View>
               <View style={[styles.miniCard, { borderColor: `${colors.expense}40` }]}>
-                <Text style={styles.label}>Despesas do mês</Text>
+                <Text style={styles.label}>Despesas do período</Text>
                 <Text style={[styles.mid, { color: colors.expense }]} adjustsFontSizeToFit numberOfLines={1}>
                   {brl(summary.expense)}
                 </Text>
@@ -109,7 +115,7 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
 
             <View style={styles.card}>
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>{summary.month_balance >= 0 ? 'Sobrou no mês' : 'Faltou no mês'}</Text>
+                <Text style={styles.statLabel}>{summary.month_balance >= 0 ? 'Sobrou no período' : 'Faltou no período'}</Text>
                 <Text style={[styles.statValue, { color: summary.month_balance >= 0 ? colors.income : colors.expense }]}>{brl(summary.month_balance)}</Text>
               </View>
               <View style={styles.divider} />
@@ -119,18 +125,18 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
               </View>
               <View style={styles.divider} />
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Lançamentos no mês</Text>
+                <Text style={styles.statLabel}>Lançamentos no período</Text>
                 <Text style={styles.statValue}>{summary.transaction_count}</Text>
               </View>
             </View>
 
             <Text style={styles.section}>Despesas por categoria</Text>
             {summary.expenses_by_category.length === 0 ? (
-              <Text style={styles.empty}>Nenhuma despesa neste mês.</Text>
+              <Text style={styles.empty}>Nenhuma despesa neste período.</Text>
             ) : (
               <View style={styles.card}>
                 {summary.expenses_by_category.map((share) => (
-                  <View key={share.category_id} style={styles.shareRow}>
+                  <Pressable key={share.category_id} accessibilityRole="button" accessibilityLabel={`Ver despesas de ${share.name}`} onPress={() => onOpenCategory(share.category_id, month, summary.start, summary.end)} style={styles.shareRow}>
                     <View style={[styles.shareIcon, { backgroundColor: `${share.color}26` }]}>
                       <CategoryBadge icon={share.icon} color={share.color} size={20} />
                     </View>
@@ -146,10 +152,13 @@ export function BalanceDetailsScreen({ onClose }: { onClose: () => void }) {
                       </View>
                       <Text style={styles.sharePercent}>{share.percent.toFixed(1).replace('.', ',')}% das despesas</Text>
                     </View>
-                  </View>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color={colors.muted} />
+                  </Pressable>
                 ))}
               </View>
             )}
+            <Text style={styles.section}>Onde você mais gasta</Text>
+            {(summary.expenses_by_card ?? []).length === 0 ? <Text style={styles.empty}>Nenhuma despesa vinculada a cartão neste período.</Text> : <View style={styles.card}>{summary.expenses_by_card?.map((card, index) => <Pressable key={card.card_id} accessibilityRole="button" accessibilityLabel={'Ver despesas do cartão ' + card.name} style={styles.shareRow} onPress={() => onOpenCard(card.card_id, summary.start, summary.end)}><MaterialCommunityIcons name="credit-card-outline" size={20} color={colors.muted} /><View style={styles.shareBody}><Text style={styles.shareName}>{card.name}{card.last_four ? ' •••• ' + card.last_four : ''}</Text><Text style={styles.sharePercent}>{index === 0 ? 'Maior gasto em cartão · ' : ''}{card.percent.toFixed(1).replace('.', ',')}% das despesas</Text></View><Text style={styles.shareTotal}>{brl(card.total)}</Text><MaterialCommunityIcons name="chevron-right" size={18} color={colors.muted} /></Pressable>)}</View>}
           </>
         )}
       </ScrollView>

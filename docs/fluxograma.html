@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxograma - Ecossistema Murilo Mobile</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px 16px; background: #fafafa; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; overflow-x: auto; }
+  p { max-width: 70ch; color: #444; }
+  @media (prefers-color-scheme: dark) { body { background: #151515; color: #eee; } .card { background: #1f1f1f; border-color: #333; } p { color: #bbb; } }
+</style>
+</head>
+<body>
+<h1>Ecossistema Murilo Mobile (Lokos de S.I) - mapa do projeto</h1>
+<p>App Expo SDK 57 / React Native 0.86 que usa a mesma conta e servidor do app desktop. Gerado a partir dos imports reais de <code>App.tsx</code> e <code>src/</code>.</p>
+
+<h2>1. Fluxo do usuário (navegação)</h2>
+<div class="card"><pre class="mermaid">
+flowchart TD
+  start([Abrir app]) --> gate[UpdateGate<br/>checa atualização OTA/APK]
+  gate --> auth{Sessão salva?<br/>auth.tsx + SecureStore}
+  auth -- não --> login[LoginScreen<br/>servidor, e-mail, senha]
+  login --> api1[(api.ts: login)]
+  api1 --> onb{Primeiro acesso?}
+  auth -- sim --> main
+  onb -- sim --> onboarding[OnboardingScreen]
+  onb -- não --> main
+  onboarding --> main
+
+  subgraph main [Main - App.tsx com barra de abas]
+    direction TB
+    fin[Finanças<br/>FinanceScreen]
+    ext[Extrato<br/>ExtratoScreen]
+    agd[Agenda<br/>AgendaScreen]
+    acc[Conta<br/>AccountScreen]
+  end
+
+  fin -- toca Saldo --> bal[BalanceDetailsScreen]
+  fin -- Receitas / Despesas --> ext
+  fin -- Ver tudo --> ext
+  bal -- toca categoria --> ext
+  fin -- + FAB --> newT[NewTransactionScreen]
+  agd -- + --> newA[NewAgendaItemScreen]
+  fin -- toca linha --> det[TransactionDetailsScreen]
+  ext -- toca linha --> det
+  det -- caneta --> newT
+  det -- segurar apagar --> del[confirm + api delete]
+  fin -- planejamento --> plan[PlanningScreen<br/>FinanceManagement]
+  acc --> cards[CardFormModal]
+  acc --> remCfg[Config de lembretes]
+  acc --> logout[Sair]
+  newT --> cat[CategoryFormModal]
+  newT --> cards
+  newT --> date[DateSheet / CalendarPicker]
+
+  widget[[Widget Android<br/>widgets/native.tsx]] -. deep link .-> main
+  notif[[Notificação de lembrete]] -. toque .-> agd
+</pre></div>
+
+<h2>2. Camadas e dependências</h2>
+<div class="card"><pre class="mermaid">
+flowchart LR
+  App[App.tsx<br/>index.ts] --> screens
+  App --> providers
+  App --> platform
+
+  subgraph providers [Estado global]
+    auth[auth.tsx]
+    profile[profile.tsx]
+  end
+
+  subgraph screens [src/screens]
+    S1[Finance / Extrato / Agenda / Account]
+    S2[BalanceDetails / TransactionDetails]
+    S3[NewTransaction / NewAgendaItem]
+    S4[Login / Onboarding / Planning]
+  end
+
+  subgraph comps [src/components]
+    C1[TransactionRow / DayHeader / CategoryBadge]
+    C2[DateSheet / CalendarPicker / Chip]
+    C3[SpendingChart / FinanceManagement]
+    C4[CategoryFormModal / CardFormModal / UpdateGate / NoticeBanner]
+  end
+
+  subgraph platform [Recursos nativos]
+    rem[reminders/<br/>index + plan]
+    wid[widgets/<br/>model + native]
+  end
+
+  subgraph logic [Lógica pura - testada em tests/*.cjs]
+    L1[calendarUtils / format / installments / payment]
+    L2[transactionActions / transactionSections / spendingChart / agendaForm / updatesPolicy]
+  end
+
+  subgraph core [Base]
+    api[api.ts<br/>HTTP para o servidor]
+    types[types.ts]
+    storage[storage.ts<br/>SecureStore]
+    server[server.ts]
+    theme[theme.ts / haptics / confirm]
+  end
+
+  screens --> comps
+  screens --> logic
+  screens --> providers
+  comps --> logic
+  providers --> api
+  providers --> rem
+  providers --> wid
+  screens --> api
+  comps --> api
+  logic --> types
+  api --> types
+  rem --> api
+  rem --> storage
+  wid --> server
+  wid --> storage
+  providers --> storage
+  screens --> theme
+  comps --> theme
+</pre></div>
+
+<h2>3. Dados: ação até o servidor</h2>
+<div class="card"><pre class="mermaid">
+sequenceDiagram
+  actor U as Usuário
+  participant S as Screen
+  participant A as api.ts
+  participant SRV as Servidor (mesmo do desktop)
+  participant W as widgets / reminders
+  U->>S: lança / edita / apaga transação
+  S->>A: chamada autenticada
+  A->>SRV: HTTP
+  SRV-->>A: dados
+  A-->>S: resultado
+  S->>W: refreshWidgets() / syncReminders()
+  S-->>U: lista atualizada (financeKey / agendaKey)
+</pre></div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default' });
+</script>
+</body>
+</html>
